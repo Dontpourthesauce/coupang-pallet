@@ -1,0 +1,1983 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>쿠팡 밀크런 파렛트 적재 & CBM 3D/2D 시뮬레이터</title>
+    <!-- Tailwind CSS & Three.js CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+        }
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- 알림 토스트 메시지 -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-sm font-medium pointer-events-none">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span id="toast-msg">알림 메시지</span>
+    </div>
+
+    <!-- 상단 헤더 -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-[1440px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+                <div class="bg-blue-600 p-2 rounded-xl shadow-inner">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight flex items-center gap-2">
+                        쿠팡 밀크런 파렛트 적재 & CBM 시뮬레이터
+                        <span class="text-xs bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-full font-medium">자동 + 수동 직접적재</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">자동 적재 알고리즘 및 3D/2D 마우스 드래그·회전·중력 스냅 수동 쌓기 지원</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="exportDataJSON()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition" title="현재 품목 및 적재 상태를 JSON 파일로 저장">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    저장(JSON)
+                </button>
+                <label class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition cursor-pointer" title="저장된 JSON 규격 불러오기">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    불러오기
+                    <input type="file" id="import-json-input" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                </label>
+                <button onclick="exportSummaryCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition">
+                    CSV 내보내기
+                </button>
+                <button onclick="copySummaryToClipboard()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    입고 신청용 요약 복사
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 2단 그리드 레이아웃 -->
+    <main class="max-w-[1440px] w-full mx-auto px-4 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
+        
+        <!-- 좌측 패널: 파렛트 설정 및 박스 입력 (5컬럼) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+            
+            <!-- 1. 파렛트 규격 설정 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">1</span>
+                        파렛트 및 최대 적재 높이 설정
+                    </h2>
+                    <span class="text-xs text-slate-400">단위: cm</span>
+                </div>
+                
+                <!-- 프리셋 버튼 -->
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button type="button" onclick="setPalletPreset(110, 110, 150, this)" class="pallet-preset-btn border border-blue-500 bg-blue-50 text-blue-700 rounded-xl p-2 text-left transition">
+                        <div class="text-xs font-bold">표준 T11형</div>
+                        <div class="text-[11px] opacity-80">110×110 / H150</div>
+                    </button>
+                    <button type="button" onclick="setPalletPreset(120, 100, 150, this)" class="pallet-preset-btn border border-slate-200 hover:border-slate-300 rounded-xl p-2 text-left transition">
+                        <div class="text-xs font-bold">유럽/수출형</div>
+                        <div class="text-[11px] text-slate-500">120×100 / H150</div>
+                    </button>
+                    <button type="button" onclick="setPalletPreset(110, 110, 165, this)" class="pallet-preset-btn border border-slate-200 hover:border-slate-300 rounded-xl p-2 text-left transition">
+                        <div class="text-xs font-bold">밀크런 고적재</div>
+                        <div class="text-[11px] text-slate-500">110×110 / H165</div>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-500 mb-1">가로 (cm)</label>
+                        <input type="number" id="pallet-w" value="110" min="50" max="300" onchange="onPalletDimensionChange()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-500 mb-1">세로 (cm)</label>
+                        <input type="number" id="pallet-d" value="110" min="50" max="300" onchange="onPalletDimensionChange()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-500 mb-1">최대 높이 (cm)</label>
+                        <input type="number" id="pallet-h" value="150" min="30" max="250" onchange="onPalletDimensionChange()" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 박스(SKU) 규격 & 수량 입력 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">2</span>
+                        혼적 박스(SKU) 추가
+                    </h2>
+                    <!-- cm / mm 단위 토글 -->
+                    <div class="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs">
+                        <button type="button" id="unit-cm" onclick="setInputUnit('cm')" class="px-2 py-0.5 rounded-md bg-white shadow-sm font-bold text-blue-600">cm</button>
+                        <button type="button" id="unit-mm" onclick="setInputUnit('mm')" class="px-2 py-0.5 rounded-md text-slate-500 font-medium">mm</button>
+                    </div>
+                </div>
+
+                <!-- 우체국 표준 박스 빠른 추가 -->
+                <div class="mb-3">
+                    <span class="text-[11px] font-medium text-slate-400 block mb-1.5">빠른 규격 추가 (클릭 시 목록 등록):</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button type="button" onclick="quickAddBox('우체국 2호', 27, 18, 15, 4)" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-lg transition">+ 2호 (27×18×15)</button>
+                        <button type="button" onclick="quickAddBox('우체국 3호', 34, 25, 21, 4)" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-lg transition">+ 3호 (34×25×21)</button>
+                        <button type="button" onclick="quickAddBox('우체국 4호', 41, 31, 28, 3)" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-lg transition">+ 4호 (41×31×28)</button>
+                        <button type="button" onclick="quickAddBox('우체국 5호', 48, 38, 34, 2)" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-lg transition">+ 5호 (48×38×34)</button>
+                    </div>
+                </div>
+
+                <form id="sku-add-form" onsubmit="return addSku(event)" class="space-y-2.5">
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="col-span-2">
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1">품목명 / 박스명</label>
+                            <input type="text" id="sku-name" placeholder="예: A상품 대박스" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1">총 수량 (개)</label>
+                            <input type="number" id="sku-qty" value="4" min="1" max="500" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1">가로 (<span class="unit-label">cm</span>)</label>
+                            <input type="number" id="sku-w" step="0.1" min="1" placeholder="50" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1">세로 (<span class="unit-label">cm</span>)</label>
+                            <input type="number" id="sku-d" step="0.1" min="1" placeholder="40" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1">높이 (<span class="unit-label">cm</span>)</label>
+                            <input type="number" id="sku-h" step="0.1" min="1" placeholder="30" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2 rounded-xl text-sm shadow-sm transition flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        품목 등록하기
+                    </button>
+                </form>
+            </section>
+
+            <!-- 3. 등록된 SKU 목록 및 수동/자동 적재 컨트롤 -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 flex-1 flex flex-col">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                    <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">3</span>
+                        품목 리스트 (<span id="total-sku-count">0</span>종 / 적재 <span id="total-placed-count" class="text-blue-600">0</span>/<span id="total-box-count">0</span>)
+                    </h2>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="autoPackAll()" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1" title="등록된 모든 품목을 자동으로 층층이 쌓습니다">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                            자동 채우기
+                        </button>
+                        <button type="button" onclick="clearCurrentPallet()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold transition" title="현재 파렛트 위의 박스만 모두 내립니다">
+                            파렛트 비우기
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50/70 border border-blue-100 rounded-xl px-3 py-2 mb-2.5 text-[11px] text-blue-800 flex items-center justify-between">
+                    <span>💡 각 품목의 <b>[+ 올리기]</b>를 누르면 현재 파렛트에 직접 쌓입니다.</span>
+                    <button type="button" onclick="clearAllSkus()" class="text-rose-600 hover:underline font-semibold ml-2 whitespace-nowrap">목록 초기화</button>
+                </div>
+
+                <div id="sku-list-container" class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    <!-- JS로 동적 렌더링 -->
+                </div>
+            </section>
+        </div>
+
+        <!-- 우측 패널: CBM 결과 대시보드 & 3D/2D 시각화 (7컬럼) -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+            
+            <!-- 상단 요약 KPI 카드 4개 -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div class="text-xs text-slate-500 font-medium">사용 파렛트 수</div>
+                    <div class="mt-1 flex items-baseline gap-1">
+                        <span id="kpi-pallets" class="text-2xl font-extrabold text-slate-900">1</span>
+                        <span class="text-xs font-semibold text-slate-500">PLT</span>
+                    </div>
+                    <div id="kpi-pallet-desc" class="text-[11px] text-slate-400 mt-0.5">110×110cm 기준</div>
+                </div>
+
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div class="text-xs text-slate-500 font-medium">순수 박스 부피</div>
+                    <div class="mt-1 flex items-baseline gap-1">
+                        <span id="kpi-pure-cbm" class="text-2xl font-extrabold text-slate-800">0.00</span>
+                        <span class="text-xs font-semibold text-slate-500">CBM</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">빈 공간 제외 합계</div>
+                </div>
+
+                <div class="bg-blue-600 p-3.5 rounded-2xl shadow-sm text-white">
+                    <div class="text-xs text-blue-100 font-medium">밀크런 신청 권장 부피</div>
+                    <div class="mt-1 flex items-baseline gap-1">
+                        <span id="kpi-gross-cbm" class="text-2xl font-extrabold">0.00</span>
+                        <span class="text-xs font-semibold text-blue-200">CBM</span>
+                    </div>
+                    <div id="kpi-max-height" class="text-[11px] text-blue-200 mt-0.5">현재 파렛트 높이: 0cm</div>
+                </div>
+
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div class="text-xs text-slate-500 font-medium">공간 적재 효율</div>
+                    <div class="mt-1 flex items-baseline gap-1">
+                        <span id="kpi-efficiency" class="text-2xl font-extrabold text-emerald-600">0</span>
+                        <span class="text-xs font-semibold text-slate-500">%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                        <div id="kpi-efficiency-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시각화 컨테이너 (3D 뷰 / 2D 단면도 전환 및 수동 적재 조작 바) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 flex-1 flex flex-col overflow-hidden">
+                
+                <!-- 뷰 전환 탭 & 파렛트 선택 바 -->
+                <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-slate-50/70">
+                    <div class="flex items-center bg-slate-200/70 p-1 rounded-xl">
+                        <button type="button" id="btn-view-3d" onclick="switchView('3d')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-600 shadow-sm transition flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/></svg>
+                            3D 입체 적재 뷰
+                        </button>
+                        <button type="button" id="btn-view-2d" onclick="switchView('2d')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+                            2D 평면/단면 배치도
+                        </button>
+                    </div>
+
+                    <!-- 다중 파렛트일 경우 파렛트 선택 탭 + 파렛트 추가 버튼 -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto max-w-full">
+                        <div id="pallet-selector" class="flex items-center gap-1.5">
+                            <!-- JS로 파렛트 1, 파렛트 2 버튼 생성 -->
+                        </div>
+                        <button type="button" onclick="addEmptyPallet()" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition whitespace-nowrap" title="새 빈 파렛트 추가">
+                            + 파렛트 추가
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 수동 적재 컨트롤 툴바 (스냅 단위, 선택된 박스 조작, 단축키 안내) -->
+                <div class="px-4 py-2 bg-slate-800 text-white flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <div class="flex items-center gap-1">
+                            <span class="text-slate-400">그리드:</span>
+                            <button type="button" id="snap-1" onclick="setSnapStep(1)" class="px-2 py-0.5 rounded bg-blue-600 text-white font-bold">1cm</button>
+                            <button type="button" id="snap-5" onclick="setSnapStep(5)" class="px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 font-medium">5cm</button>
+                        </div>
+                        <button type="button" id="btn-magnetic-snap" onclick="toggleMagneticSnap()" class="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold flex items-center gap-1 transition" title="인접한 박스 모서리/꼭짓점 및 파렛트 외곽에 자석처럼 자동 흡착">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            모서리 자석: ON
+                        </button>
+                        <span class="hidden xl:inline text-slate-500">|</span>
+                        <span class="hidden xl:inline text-slate-300 text-[11px]"><b>Shift/Ctrl+클릭</b> 다중선택 · <b>방향키(↑↓←→)</b> 미세이동 · <b>R</b> 평면회전 · <b>T</b> 세우기/눕히기</span>
+                    </div>
+
+                    <!-- 선택된 박스 액션 버튼 그룹 -->
+                    <div id="selected-box-toolbar" class="flex items-center gap-1.5">
+                        <span id="selected-box-label" class="text-slate-400 text-[11px]">클릭 또는 Shift+클릭으로 선택</span>
+                        <div id="selected-box-actions" class="hidden flex items-center gap-1.5">
+                            <button type="button" onclick="rotateSelectedBoxes()" class="bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition" title="바닥 평면에서 90도 회전 (단축키: R)">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                평면 90° (R)
+                            </button>
+                            <button type="button" onclick="tiltSelectedBoxes()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition" title="박스를 옆으로 세우거나 눕힙니다 (단축키: T)">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                세우기/눕히기 (T)
+                            </button>
+                            <button type="button" onclick="deleteSelectedBoxes()" class="bg-rose-600 hover:bg-rose-500 text-white px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition" title="단축키: Delete">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                내리기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D 뷰 영역 -->
+                <div id="view-3d-container" class="relative flex-1 min-h-[430px] bg-gradient-to-b from-slate-100 to-slate-200 select-none">
+                    <div id="three-canvas-wrapper" class="w-full h-full min-h-[430px]"></div>
+
+                    <!-- 3D 카메라 시점 프리셋 버튼 -->
+                    <div class="absolute top-3 left-3 flex flex-col gap-1.5">
+                        <div class="bg-white/95 backdrop-blur-sm p-1.5 rounded-xl border border-slate-200/80 shadow-sm flex items-center gap-1 text-[11px] font-bold">
+                            <button type="button" onclick="setCameraPreset('iso')" class="px-2 py-1 rounded-lg hover:bg-blue-50 text-slate-700 hover:text-blue-600 transition">등각뷰</button>
+                            <button type="button" onclick="setCameraPreset('top')" class="px-2 py-1 rounded-lg hover:bg-blue-50 text-slate-700 hover:text-blue-600 transition">평면(위)</button>
+                            <button type="button" onclick="setCameraPreset('front')" class="px-2 py-1 rounded-lg hover:bg-blue-50 text-slate-700 hover:text-blue-600 transition">정면</button>
+                            <button type="button" onclick="setCameraPreset('side')" class="px-2 py-1 rounded-lg hover:bg-blue-50 text-slate-700 hover:text-blue-600 transition">측면</button>
+                        </div>
+                        <div class="bg-white/85 backdrop-blur-sm px-2.5 py-1.5 rounded-xl border border-slate-200/80 text-[11px] text-slate-600 pointer-events-none">
+                            • 빈 공간 드래그: 회전 / 휠: 줌<br>
+                            • <b>방향키(↑↓←→)</b>: 자석 무시 1cm/5cm 미세 이동<br>
+                            • <b>T키</b>: 세우기(높이 전환) / <b>R키</b>: 평면 회전<br>
+                            • 박스 선택 후 <b>[+ 올리기]</b>: 해당 박스 바로 위 적재
+                        </div>
+                    </div>
+
+                    <!-- 호버/선택된 박스 상세 정보 툴팁 -->
+                    <div id="box-info-badge" class="hidden absolute top-3 right-3 bg-slate-900/95 text-white px-3.5 py-2.5 rounded-xl shadow-lg text-xs max-w-[240px] border border-slate-700">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span id="badge-color" class="w-3 h-3 rounded-sm flex-shrink-0"></span>
+                                <span id="badge-name" class="font-bold truncate">박스 이름</span>
+                            </div>
+                        </div>
+                        <div id="badge-dim" class="text-slate-300">규격: 0 × 0 × 0 cm</div>
+                        <div id="badge-pos" class="text-blue-300 mt-0.5">좌표: X 0, Z 0 / 바닥높이 0cm</div>
+                        <div id="badge-snap-status" class="hidden text-emerald-400 font-semibold mt-1">🧲 모서리/꼭짓점 자동 흡착됨</div>
+                        <div id="badge-warning" class="hidden text-rose-400 font-bold mt-1">⚠ 경고: 다른 박스와 겹치거나 파렛트 이탈!</div>
+                    </div>
+
+                    <!-- 하단 높이(Y) 투시 슬라이더 -->
+                    <div class="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-700 whitespace-nowrap">높이별 투시:</span>
+                        <input type="range" id="height-slider" min="10" max="150" value="150" oninput="filter3DByHeight(this.value)" class="flex-1 accent-blue-600 cursor-pointer">
+                        <span id="height-slider-label" class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg whitespace-nowrap">전체 (150cm)</span>
+                    </div>
+                </div>
+
+                <!-- 2D 층별/구간별 배치도 영역 -->
+                <div id="view-2d-container" class="hidden flex-1 min-h-[430px] p-4 flex flex-col bg-slate-50">
+                    <!-- 2D 높이 구간 선택 버튼 바 -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <div class="flex items-center gap-1.5 flex-wrap" id="layer-2d-tabs">
+                            <!-- JS로 전체 Top-Down 및 높이 구간 버튼 생성 -->
+                        </div>
+                        <div id="layer-2d-meta" class="text-xs text-slate-600 font-semibold">
+                            Shift/Ctrl+클릭으로 여러 박스를 한 번에 드래그할 수 있습니다.
+                        </div>
+                    </div>
+
+                    <!-- 2D 캔버스 래퍼 -->
+                    <div class="flex-1 flex items-center justify-center bg-white rounded-xl border border-slate-200 p-4 relative overflow-hidden">
+                        <canvas id="blueprint-canvas" class="max-w-full max-h-[340px] cursor-grab active:cursor-grabbing"></canvas>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-2 text-center">
+                        * 2D 평면도에서도 <b>Shift/Ctrl+클릭</b> 다중 선택 이동, <b>모서리 자석 보정(녹색 점선 가이드)</b>, <b>R키</b> 회전, <b>Delete키</b> 내리기를 지원합니다.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. 전역 상태 및 기본 데이터 정의
+        // ==========================================
+        const BOX_COLORS = [
+            '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899',
+            '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#84cc16'
+        ];
+
+        let inputUnit = 'cm';
+        let nextSkuId = 4;
+        let nextBoxInstanceId = 1;
+
+        // 초기 샘플 품목(SKU) 목록
+        let skuList = [
+            { id: 1, name: 'A상품 대박스', w: 55, d: 45, h: 35, qty: 4, color: BOX_COLORS[0] },
+            { id: 2, name: 'B상품 중박스', w: 45, d: 35, h: 30, qty: 6, color: BOX_COLORS[1] },
+            { id: 3, name: 'C상품 소박스', w: 35, d: 25, h: 25, qty: 6, color: BOX_COLORS[2] }
+        ];
+
+        let pallets = [{ id: 1, placedBoxes: [] }];
+        let currentPalletIdx = 0;
+        let currentViewMode = '3d';
+        let current2DSliceFilter = 'all';
+        let heightFilterLimit = 150;
+
+        let snapStep = 1;
+        let magneticSnapEnabled = true;
+        const MAGNETIC_THRESHOLD = 4.5;
+        let activeSnapGuides = { x: null, z: null, snapped: false };
+        let selectedBoxInstanceIds = new Set();
+
+        // ==========================================
+        // 2. 공통 유틸리티 및 UI 제어 함수
+        // ==========================================
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            if (!toast || !toastMsg) return;
+            toastMsg.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2600);
+        }
+
+        function getPalletDimensions() {
+            const pW = Math.max(30, parseFloat(document.getElementById('pallet-w').value) || 110);
+            const pD = Math.max(30, parseFloat(document.getElementById('pallet-d').value) || 110);
+            const maxH = Math.max(20, parseFloat(document.getElementById('pallet-h').value) || 150);
+            return { pW, pD, maxH };
+        }
+
+        function setInputUnit(unit) {
+            inputUnit = unit;
+            const btnCm = document.getElementById('unit-cm');
+            const btnMm = document.getElementById('unit-mm');
+            document.querySelectorAll('.unit-label').forEach(el => el.textContent = unit);
+
+            if (unit === 'cm') {
+                btnCm.className = 'px-2 py-0.5 rounded-md bg-white shadow-sm font-bold text-blue-600';
+                btnMm.className = 'px-2 py-0.5 rounded-md text-slate-500 font-medium';
+            } else {
+                btnMm.className = 'px-2 py-0.5 rounded-md bg-white shadow-sm font-bold text-blue-600';
+                btnCm.className = 'px-2 py-0.5 rounded-md text-slate-500 font-medium';
+            }
+        }
+
+        function setSnapStep(step) {
+            snapStep = step;
+            const btn1 = document.getElementById('snap-1');
+            const btn5 = document.getElementById('snap-5');
+            if (step === 1) {
+                btn1.className = 'px-2 py-0.5 rounded bg-blue-600 text-white font-bold';
+                btn5.className = 'px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 font-medium';
+            } else {
+                btn5.className = 'px-2 py-0.5 rounded bg-blue-600 text-white font-bold';
+                btn1.className = 'px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 font-medium';
+            }
+        }
+
+        function toggleMagneticSnap() {
+            magneticSnapEnabled = !magneticSnapEnabled;
+            const btn = document.getElementById('btn-magnetic-snap');
+            if (magneticSnapEnabled) {
+                btn.className = 'px-2 py-0.5 rounded bg-emerald-600 text-white font-bold flex items-center gap-1 transition';
+                btn.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>모서리 자석: ON`;
+            } else {
+                btn.className = 'px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-medium flex items-center gap-1 transition';
+                btn.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>모서리 자석: OFF`;
+            }
+        }
+
+        function getPlacedCountForSku(skuId) {
+            let count = 0;
+            pallets.forEach(p => {
+                p.placedBoxes.forEach(b => {
+                    if (b.skuId === skuId) count++;
+                });
+            });
+            return count;
+        }
+
+        function getSelectionBoundingBox(boxes) {
+            let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+            boxes.forEach(b => {
+                minX = Math.min(minX, b.x);
+                minZ = Math.min(minZ, b.z);
+                maxX = Math.max(maxX, b.x + b.placedW);
+                maxZ = Math.max(maxZ, b.z + b.placedD);
+            });
+            return { minX, minZ, maxX, maxZ, w: maxX - minX, d: maxZ - minZ };
+        }
+
+        function applyMagneticEdgeCornerSnap(desiredX, desiredZ, groupW, groupD, ignoreIdsSet, pallet) {
+            const { pW, pD } = getPalletDimensions();
+            let snappedX = Math.round(desiredX / snapStep) * snapStep;
+            let snappedZ = Math.round(desiredZ / snapStep) * snapStep;
+            let guideX = null;
+            let guideZ = null;
+            let didSnap = false;
+
+            if (magneticSnapEnabled) {
+                const candidateXEdges = [0, pW];
+                const candidateZEdges = [0, pD];
+
+                pallet.placedBoxes.forEach(other => {
+                    if (ignoreIdsSet.has(other.instanceId)) return;
+                    candidateXEdges.push(other.x, other.x + other.placedW);
+                    candidateZEdges.push(other.z, other.z + other.placedD);
+                });
+
+                let bestDistX = MAGNETIC_THRESHOLD;
+                candidateXEdges.forEach(edgeX => {
+                    const distLeft = Math.abs(desiredX - edgeX);
+                    if (distLeft <= bestDistX) {
+                        bestDistX = distLeft;
+                        snappedX = edgeX;
+                        guideX = edgeX;
+                        didSnap = true;
+                    }
+                    const distRight = Math.abs((desiredX + groupW) - edgeX);
+                    if (distRight <= bestDistX) {
+                        bestDistX = distRight;
+                        snappedX = edgeX - groupW;
+                        guideX = edgeX;
+                        didSnap = true;
+                    }
+                });
+
+                let bestDistZ = MAGNETIC_THRESHOLD;
+                candidateZEdges.forEach(edgeZ => {
+                    const distTop = Math.abs(desiredZ - edgeZ);
+                    if (distTop <= bestDistZ) {
+                        bestDistZ = distTop;
+                        snappedZ = edgeZ;
+                        guideZ = edgeZ;
+                        didSnap = true;
+                    }
+                    const distBottom = Math.abs((desiredZ + groupD) - edgeZ);
+                    if (distBottom <= bestDistZ) {
+                        bestDistZ = distBottom;
+                        snappedZ = edgeZ - groupD;
+                        guideZ = edgeZ;
+                        didSnap = true;
+                    }
+                });
+            }
+
+            snappedX = Math.max(0, Math.min(pW - groupW, snappedX));
+            snappedZ = Math.max(0, Math.min(pD - groupD, snappedZ));
+            activeSnapGuides = { x: guideX, z: guideZ, snapped: didSnap };
+
+            return { x: snappedX, z: snappedZ };
+        }
+
+        // ==========================================
+        // 3. 중력 물리 및 충돌 감지 + 자동 적재 알고리즘
+        // ==========================================
+        function isXZOverlapping(a, b) {
+            const eps = 0.05;
+            return (
+                a.x < b.x + b.placedW - eps &&
+                a.x + a.placedW > b.x + eps &&
+                a.z < b.z + b.placedD - eps &&
+                a.z + a.placedD > b.z + eps
+            );
+        }
+
+        function recalculatePhysicsForPallet(pallet) {
+            if (!pallet) return;
+            const { pW, pD, maxH } = getPalletDimensions();
+
+            // 아래쪽 박스부터 정렬하여 순차적으로 중력 지지 높이(Y) 계산
+            const sorted = [...pallet.placedBoxes].sort((a, b) => a.y - b.y);
+            for (let i = 0; i < sorted.length; i++) {
+                const box = sorted[i];
+                let supportY = 0;
+                for (let j = 0; j < i; j++) {
+                    const lower = sorted[j];
+                    if (isXZOverlapping(box, lower)) {
+                        supportY = Math.max(supportY, lower.y + lower.placedH);
+                    }
+                }
+                box.y = Math.round(supportY * 10) / 10;
+            }
+
+            // 경계 이탈 및 최대 높이 초과, 3D 공간 겹침 검사
+            const eps = 0.05;
+            pallet.placedBoxes.forEach(box => {
+                let collision = false;
+                if (
+                    box.x < -eps ||
+                    box.z < -eps ||
+                    box.x + box.placedW > pW + eps ||
+                    box.z + box.placedD > pD + eps ||
+                    box.y + box.placedH > maxH + eps
+                ) {
+                    collision = true;
+                }
+
+                if (!collision) {
+                    for (const other of pallet.placedBoxes) {
+                        if (box.instanceId === other.instanceId) continue;
+                        const overlapY = box.y < other.y + other.placedH - eps && box.y + box.placedH > other.y + eps;
+                        if (overlapY && isXZOverlapping(box, other)) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                }
+                box.hasCollision = collision;
+            });
+        }
+
+        function autoPackAll() {
+            const { pW, pD, maxH } = getPalletDimensions();
+            let allUnits = [];
+            skuList.forEach(sku => {
+                for (let i = 0; i < sku.qty; i++) {
+                    allUnits.push({ ...sku });
+                }
+            });
+
+            if (allUnits.length === 0) {
+                pallets = [{ id: 1, placedBoxes: [] }];
+                currentPalletIdx = 0;
+                selectedBoxInstanceIds.clear();
+                refreshAllViews();
+                return;
+            }
+
+            // 바닥 면적이 넓은 무거운 박스부터 우선 배치
+            allUnits.sort((a, b) => (b.w * b.d) - (a.w * a.d) || b.h - a.h);
+
+            const newPallets = [];
+            let remaining = [...allUnits];
+
+            while (remaining.length > 0) {
+                const pallet = { id: newPallets.length + 1, placedBoxes: [] };
+                const unplacedNext = [];
+
+                for (const unit of remaining) {
+                    if ((unit.w > pW || unit.d > pD) && (unit.d > pW || unit.w > pD)) {
+                        continue;
+                    }
+                    const spot = findBestManualSpot(pallet, unit.w, unit.d, unit.h, pW, pD, maxH);
+                    if (spot.y + unit.h <= maxH) {
+                        pallet.placedBoxes.push({
+                            instanceId: nextBoxInstanceId++,
+                            skuId: unit.id,
+                            name: unit.name,
+                            w: unit.w,
+                            d: unit.d,
+                            h: unit.h,
+                            color: unit.color,
+                            x: spot.x,
+                            y: spot.y,
+                            z: spot.z,
+                            placedW: spot.placedW,
+                            placedD: spot.placedD,
+                            placedH: unit.h,
+                            hasCollision: false
+                        });
+                    } else {
+                        unplacedNext.push(unit);
+                    }
+                }
+
+                recalculatePhysicsForPallet(pallet);
+                newPallets.push(pallet);
+
+                if (pallet.placedBoxes.length === 0) break;
+                remaining = unplacedNext;
+            }
+
+            pallets = newPallets.length > 0 ? newPallets : [{ id: 1, placedBoxes: [] }];
+            currentPalletIdx = 0;
+            selectedBoxInstanceIds.clear();
+            activeSnapGuides = { x: null, z: null, snapped: false };
+            refreshAllViews();
+            showToast(`총 ${pallets.length}개 파렛트에 자동 적재가 완료되었습니다.`);
+        }
+
+        function renderSkuList() {
+            const container = document.getElementById('sku-list-container');
+            const totalSkuCount = document.getElementById('total-sku-count');
+            const totalPlacedCount = document.getElementById('total-placed-count');
+            const totalBoxCount = document.getElementById('total-box-count');
+
+            let totalQty = 0;
+            let totalPlaced = 0;
+
+            if (skuList.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-xs text-slate-400">등록된 박스 품목이 없습니다. 위에서 규격과 수량을 입력해 주세요.</div>`;
+            } else {
+                container.innerHTML = skuList.map(sku => {
+                    const placed = getPlacedCountForSku(sku.id);
+                    totalQty += sku.qty;
+                    totalPlaced += placed;
+                    const cbmPerBox = ((sku.w * sku.d * sku.h) / 1000000).toFixed(3);
+
+                    return `
+                        <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 hover:bg-white transition">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="w-3.5 h-3.5 rounded-md flex-shrink-0 shadow-xs" style="background-color: ${sku.color}"></span>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold text-slate-800 truncate">${sku.name}</div>
+                                    <div class="text-[11px] text-slate-500">${sku.w}×${sku.d}×${sku.h}cm · ${cbmPerBox} CBM</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                <div class="flex items-center bg-white border border-slate-200 rounded-lg px-1 py-0.5 text-[11px]">
+                                    <button type="button" onclick="updateSkuQty(${sku.id}, -1)" class="px-1.5 text-slate-500 hover:text-slate-800 font-bold">-</button>
+                                    <span class="px-1 font-bold text-slate-700">${placed}/${sku.qty}</span>
+                                    <button type="button" onclick="updateSkuQty(${sku.id}, 1)" class="px-1.5 text-slate-500 hover:text-slate-800 font-bold">+</button>
+                                </div>
+                                <button type="button" onclick="manuallyPlaceOneBox(${sku.id})" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg text-[11px] font-bold shadow-xs transition whitespace-nowrap">
+                                    + 올리기
+                                </button>
+                                <button type="button" onclick="removeSku(${sku.id})" class="text-slate-400 hover:text-rose-500 p-1 transition" title="품목 삭제">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            totalSkuCount.textContent = skuList.length;
+            totalPlacedCount.textContent = totalPlaced;
+            totalBoxCount.textContent = totalQty;
+        }
+
+        function refreshAllViews() {
+            renderSkuList();
+            updateDashboardKPIs();
+            renderPalletTabs();
+            updateSelectionToolbar();
+            if (currentViewMode === '3d') {
+                rebuild3DScene();
+            } else {
+                render2DBlueprint();
+            }
+        }
+
+        // ==========================================
+        // 4. 수동 적재 (1개씩 직접 올리기 / 다중 선택 이동 / 평면 회전 / 세우기 / 삭제)
+        // ==========================================
+        function manuallyPlaceOneBox(skuId) {
+            const sku = skuList.find(s => s.id === skuId);
+            if (!sku) return;
+
+            const placedCount = getPlacedCountForSku(skuId);
+            if (placedCount >= sku.qty) {
+                sku.qty += 1;
+            }
+
+            const { pW, pD, maxH } = getPalletDimensions();
+            if ((sku.w > pW || sku.d > pD) && (sku.d > pW || sku.w > pD)) {
+                showToast(`이 박스(${sku.w}×${sku.d}cm)는 파렛트 바닥(${pW}×${pD}cm)보다 큽니다.`);
+                return;
+            }
+
+            const pallet = pallets[currentPalletIdx];
+            const selectedBoxes = getSelectedBoxes();
+            let spot;
+            let stackedOnSelected = false;
+
+            // 1. 3D/2D 뷰에서 선택된 박스가 있는 경우, 해당 선택 박스의 꼭짓점(X, Z)에 맞춰 바로 위로 적재
+            if (selectedBoxes.length > 0) {
+                // 여러 개가 선택된 경우 가장 위에 있는(또는 가장 최근 선택된) 박스를 기준 박스로 삼음
+                const targetBaseBox = [...selectedBoxes].sort((a, b) => (b.y + b.placedH) - (a.y + a.placedH))[0];
+
+                // 기준 박스의 방향과 가급적 일치시키되 파렛트를 벗어나지 않도록 회전 결정
+                let chosenW = sku.w;
+                let chosenD = sku.d;
+                if (targetBaseBox.placedW === sku.d && targetBaseBox.placedD === sku.w) {
+                    chosenW = sku.d;
+                    chosenD = sku.w;
+                } else if (targetBaseBox.x + chosenW > pW || targetBaseBox.z + chosenD > pD) {
+                    if (targetBaseBox.x + sku.d <= pW && targetBaseBox.z + sku.w <= pD) {
+                        chosenW = sku.d;
+                        chosenD = sku.w;
+                    }
+                }
+
+                // 파렛트 경계를 넘지 않도록 꼭짓점 좌표 보정
+                const placeX = Math.max(0, Math.min(pW - chosenW, targetBaseBox.x));
+                const placeZ = Math.max(0, Math.min(pD - chosenD, targetBaseBox.z));
+                const placeY = targetBaseBox.y + targetBaseBox.placedH;
+
+                spot = {
+                    x: placeX,
+                    y: placeY,
+                    z: placeZ,
+                    placedW: chosenW,
+                    placedD: chosenD
+                };
+                stackedOnSelected = true;
+            } else {
+                // 선택된 박스가 없으면 빈 공간 탐색
+                spot = findBestManualSpot(pallet, sku.w, sku.d, sku.h, pW, pD, maxH);
+            }
+
+            const newBox = {
+                instanceId: nextBoxInstanceId++,
+                skuId: sku.id,
+                name: sku.name,
+                w: sku.w,
+                d: sku.d,
+                h: sku.h,
+                color: sku.color,
+                x: spot.x,
+                y: spot.y,
+                z: spot.z,
+                placedW: spot.placedW,
+                placedD: spot.placedD,
+                placedH: sku.h,
+                hasCollision: false
+            };
+
+            pallet.placedBoxes.push(newBox);
+            recalculatePhysicsForPallet(pallet);
+
+            // 연속으로 [+ 올리기]를 누르면 방금 올린 박스 위로 계속 쌓이도록 새 박스를 자동 선택
+            selectedBoxInstanceIds.clear();
+            selectedBoxInstanceIds.add(newBox.instanceId);
+            activeSnapGuides = { x: null, z: null, snapped: false };
+
+            refreshAllViews();
+            if (stackedOnSelected) {
+                showToast(`선택된 박스 바로 위(꼭짓점 X:${newBox.x}, Z:${newBox.z})에 '${sku.name}'을(를) 적재했습니다.`);
+            } else {
+                showToast(`'${sku.name}' 1박스를 파렛트에 올렸습니다.`);
+            }
+        }
+
+        function setPalletPreset(w, d, h, btnEl) {
+            document.getElementById('pallet-w').value = w;
+            document.getElementById('pallet-d').value = d;
+            document.getElementById('pallet-h').value = h;
+            
+            document.querySelectorAll('.pallet-preset-btn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                btn.classList.add('border-slate-200');
+            });
+            if (btnEl) {
+                btnEl.classList.remove('border-slate-200');
+                btnEl.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+            }
+            onPalletDimensionChange();
+        }
+
+        function onPalletDimensionChange() {
+            const { maxH } = getPalletDimensions();
+            const slider = document.getElementById('height-slider');
+            slider.max = maxH;
+            slider.value = maxH;
+            heightFilterLimit = maxH;
+            document.getElementById('height-slider-label').textContent = `전체 (${maxH}cm)`;
+
+            pallets.forEach(p => recalculatePhysicsForPallet(p));
+            refreshAllViews();
+        }
+
+        function quickAddBox(name, wCm, dCm, hCm, qty) {
+            const color = BOX_COLORS[(nextSkuId - 1) % BOX_COLORS.length];
+            const newSku = { id: nextSkuId++, name, w: wCm, d: dCm, h: hCm, qty, color };
+            skuList.push(newSku);
+            refreshAllViews();
+            showToast(`'${name}' ${qty}박스가 목록에 등록되었습니다.`);
+        }
+
+        function addSku(e) {
+            if (e) e.preventDefault();
+            const name = document.getElementById('sku-name').value.trim();
+            const qty = parseInt(document.getElementById('sku-qty').value, 10);
+            let w = parseFloat(document.getElementById('sku-w').value);
+            let d = parseFloat(document.getElementById('sku-d').value);
+            let h = parseFloat(document.getElementById('sku-h').value);
+
+            if (!name || isNaN(w) || isNaN(d) || isNaN(h) || isNaN(qty) || qty <= 0) return false;
+            if (inputUnit === 'mm') { w /= 10; d /= 10; h /= 10; }
+
+            const color = BOX_COLORS[(nextSkuId - 1) % BOX_COLORS.length];
+            skuList.push({ id: nextSkuId++, name, w, d, h, qty, color });
+
+            document.getElementById('sku-name').value = '';
+            document.getElementById('sku-w').value = '';
+            document.getElementById('sku-d').value = '';
+            document.getElementById('sku-h').value = '';
+
+            refreshAllViews();
+            showToast(`'${name}' 등록 완료`);
+            return false;
+        }
+
+        function updateSkuQty(id, delta) {
+            const item = skuList.find(s => s.id === id);
+            if (!item) return;
+            item.qty = Math.max(1, item.qty + delta);
+            refreshAllViews();
+        }
+
+        function removeSku(id) {
+            skuList = skuList.filter(s => s.id !== id);
+            pallets.forEach(p => {
+                p.placedBoxes = p.placedBoxes.filter(b => {
+                    if (b.skuId === id) {
+                        selectedBoxInstanceIds.delete(b.instanceId);
+                        return false;
+                    }
+                    return true;
+                });
+                recalculatePhysicsForPallet(p);
+            });
+            refreshAllViews();
+        }
+
+        function clearAllSkus() {
+            skuList = [];
+            pallets = [{ id: 1, placedBoxes: [] }];
+            currentPalletIdx = 0;
+            selectedBoxInstanceIds.clear();
+            refreshAllViews();
+            showToast('모든 품목 및 파렛트가 초기화되었습니다.');
+        }
+
+        function clearCurrentPallet() {
+            const pallet = pallets[currentPalletIdx];
+            if (!pallet) return;
+            pallet.placedBoxes = [];
+            selectedBoxInstanceIds.clear();
+            refreshAllViews();
+            showToast(`파렛트 #${currentPalletIdx + 1}의 박스를 모두 내렸습니다.`);
+        }
+
+        function addEmptyPallet() {
+            pallets.push({ id: pallets.length + 1, placedBoxes: [] });
+            currentPalletIdx = pallets.length - 1;
+            selectedBoxInstanceIds.clear();
+            refreshAllViews();
+            showToast(`새 파렛트 #${pallets.length}이 추가되었습니다.`);
+        }
+
+        function selectPallet(idx) {
+            currentPalletIdx = idx;
+            selectedBoxInstanceIds.clear();
+            current2DSliceFilter = 'all';
+            refreshAllViews();
+        }
+
+        function findBestManualSpot(pallet, boxW, boxD, boxH, pW, pD, maxH) {
+            const step = 5;
+            let bestSpot = { x: 0, y: 0, z: 0, placedW: boxW, placedD: boxD };
+            let minFoundY = Infinity;
+
+            const orientations = [
+                { w: boxW, d: boxD },
+                { w: boxD, d: boxW }
+            ];
+
+            for (let ori of orientations) {
+                if (ori.w > pW || ori.d > pD) continue;
+                for (let z = 0; z <= pD - ori.d; z += step) {
+                    for (let x = 0; x <= pW - ori.w; x += step) {
+                        const candidate = { x, z, placedW: ori.w, placedD: ori.d };
+                        let supportY = 0;
+                        pallet.placedBoxes.forEach(other => {
+                            if (isXZOverlapping(candidate, other)) {
+                                supportY = Math.max(supportY, other.y + other.placedH);
+                            }
+                        });
+                        if (supportY + boxH <= maxH && supportY < minFoundY) {
+                            minFoundY = supportY;
+                            bestSpot = { x, y: supportY, z, placedW: ori.w, placedD: ori.d };
+                            if (supportY === 0) return bestSpot;
+                        }
+                    }
+                }
+            }
+            return bestSpot;
+        }
+
+        function getSelectedBoxes() {
+            const pallet = pallets[currentPalletIdx];
+            if (!pallet || selectedBoxInstanceIds.size === 0) return [];
+            return pallet.placedBoxes.filter(b => selectedBoxInstanceIds.has(b.instanceId));
+        }
+
+        function rotateSelectedBoxes() {
+            const boxes = getSelectedBoxes();
+            if (boxes.length === 0) return;
+
+            const { pW, pD } = getPalletDimensions();
+            if (boxes.length === 1) {
+                const box = boxes[0];
+                const temp = box.placedW;
+                box.placedW = box.placedD;
+                box.placedD = temp;
+                box.x = Math.max(0, Math.min(pW - box.placedW, box.x));
+                box.z = Math.max(0, Math.min(pD - box.placedD, box.z));
+            } else {
+                // 다중 선택 시 전체 그룹 중심을 기준으로 90도 시계방향 회전
+                const bbox = getSelectionBoundingBox(boxes);
+                const cx = bbox.minX + bbox.w / 2;
+                const cz = bbox.minZ + bbox.d / 2;
+
+                boxes.forEach(b => {
+                    const bCx = b.x + b.placedW / 2;
+                    const bCz = b.z + b.placedD / 2;
+                    const relX = bCx - cx;
+                    const relZ = bCz - cz;
+
+                    const temp = b.placedW;
+                    b.placedW = b.placedD;
+                    b.placedD = temp;
+
+                    const newBCx = cx - relZ;
+                    const newBCz = cz + relX;
+                    b.x = Math.round((newBCx - b.placedW / 2) * 10) / 10;
+                    b.z = Math.round((newBCz - b.placedD / 2) * 10) / 10;
+                });
+
+                // 파렛트 경계 내부로 보정
+                const newBbox = getSelectionBoundingBox(boxes);
+                let shiftX = 0, shiftZ = 0;
+                if (newBbox.minX < 0) shiftX = -newBbox.minX;
+                if (newBbox.maxX + shiftX > pW) shiftX -= (newBbox.maxX + shiftX - pW);
+                if (newBbox.minZ < 0) shiftZ = -newBbox.minZ;
+                if (newBbox.maxZ + shiftZ > pD) shiftZ -= (newBbox.maxZ + shiftZ - pD);
+
+                boxes.forEach(b => {
+                    b.x = Math.round((b.x + shiftX) * 10) / 10;
+                    b.z = Math.round((b.z + shiftZ) * 10) / 10;
+                });
+            }
+
+            const pallet = pallets[currentPalletIdx];
+            recalculatePhysicsForPallet(pallet);
+            refreshAllViews();
+        }
+
+        // 박스를 세우거나 눕히는 입체 회전 (W <-> H <-> D 축 순환 전환)
+        function tiltSelectedBoxes() {
+            const boxes = getSelectedBoxes();
+            if (boxes.length === 0) return;
+
+            const { pW, pD } = getPalletDimensions();
+            boxes.forEach(box => {
+                // 현재 (placedW, placedD, placedH)를 세로축 기준으로 세움: (placedH, placedD, placedW)
+                const oldW = box.placedW;
+                const oldD = box.placedD;
+                const oldH = box.placedH;
+
+                box.placedW = oldH;
+                box.placedD = oldW;
+                box.placedH = oldD;
+
+                // 파렛트 경계 안쪽으로 위치 보정
+                box.x = Math.max(0, Math.min(pW - box.placedW, box.x));
+                box.z = Math.max(0, Math.min(pD - box.placedD, box.z));
+            });
+
+            const pallet = pallets[currentPalletIdx];
+            recalculatePhysicsForPallet(pallet);
+            refreshAllViews();
+
+            if (boxes.length === 1) {
+                const b = boxes[0];
+                showToast(`박스 방향 전환: 바닥 ${b.placedW}×${b.placedD}cm / 높이 ${b.placedH}cm`);
+            } else {
+                showToast(`선택된 ${boxes.length}개 박스의 세우기/눕히기 방향이 전환되었습니다.`);
+            }
+        }
+        function moveSelectedBoxes(dx, dz) {
+            const boxes = getSelectedBoxes();
+            if (boxes.length === 0) return;
+
+            const { pW, pD } = getPalletDimensions();
+            const bbox = getSelectionBoundingBox(boxes);
+
+            // 키보드 미세 이동 시 모서리 자석 가이드 해제 및 1cm/5cm 단위 정밀 이동
+            activeSnapGuides = { x: null, z: null, snapped: false };
+
+            let actualDx = Math.round(dx / snapStep) * snapStep;
+            let actualDz = Math.round(dz / snapStep) * snapStep;
+
+            if (bbox.minX + actualDx < 0) actualDx = -bbox.minX;
+            if (bbox.maxX + actualDx > pW) actualDx = pW - bbox.maxX;
+            if (bbox.minZ + actualDz < 0) actualDz = -bbox.minZ;
+            if (bbox.maxZ + actualDz > pD) actualDz = pD - bbox.maxZ;
+
+            boxes.forEach(b => {
+                b.x = Math.round((b.x + actualDx) * 10) / 10;
+                b.z = Math.round((b.z + actualDz) * 10) / 10;
+            });
+
+            const pallet = pallets[currentPalletIdx];
+            recalculatePhysicsForPallet(pallet);
+            refreshAllViews();
+        }
+
+        window.addEventListener('keydown', e => {
+            // 숫자/텍스트 입력 필드(INPUT, TEXTAREA)에 타이핑 중일 때는 단축키 무시 (버튼에 포커스가 있을 때는 허용)
+            const activeTag = document.activeElement ? document.activeElement.tagName : '';
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag)) return;
+            if (selectedBoxInstanceIds.size === 0) return;
+
+            if (e.key === 'r' || e.key === 'R' || e.key === 'ㄱ') {
+                e.preventDefault();
+                rotateSelectedBoxes();
+            } else if (e.key === 't' || e.key === 'T' || e.key === 'ㅅ') {
+                e.preventDefault();
+                tiltSelectedBoxes();
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                deleteSelectedBoxes();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                moveSelectedBoxes(-snapStep, 0);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                moveSelectedBoxes(snapStep, 0);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                moveSelectedBoxes(0, -snapStep);
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                moveSelectedBoxes(0, snapStep);
+            } else if (e.key === 'Escape') {
+                selectedBoxInstanceIds.clear();
+                activeSnapGuides = { x: null, z: null, snapped: false };
+                refreshAllViews();
+            }
+        });
+
+        function deleteSelectedBoxes() {
+            if (selectedBoxInstanceIds.size === 0) return;
+            const pallet = pallets[currentPalletIdx];
+            if (!pallet) return;
+
+            const deletedCount = selectedBoxInstanceIds.size;
+            pallet.placedBoxes = pallet.placedBoxes.filter(b => !selectedBoxInstanceIds.has(b.instanceId));
+            selectedBoxInstanceIds.clear();
+            activeSnapGuides = { x: null, z: null, snapped: false };
+
+            recalculatePhysicsForPallet(pallet);
+            refreshAllViews();
+            showToast(`선택한 ${deletedCount}개 박스를 파렛트에서 내렸습니다.`);
+        }
+
+        function calculatePalletStats(pallet) {
+            const { pW, pD } = getPalletDimensions();
+            if (!pallet || pallet.placedBoxes.length === 0) {
+                return { pureCbm: 0, grossCbm: 0, maxUsedHeight: 0 };
+            }
+
+            let pureVol = 0;
+            let maxUsedHeight = 0;
+
+            pallet.placedBoxes.forEach(b => {
+                pureVol += b.placedW * b.placedD * b.placedH;
+                maxUsedHeight = Math.max(maxUsedHeight, b.y + b.placedH);
+            });
+
+            const pureCbm = pureVol / 1000000;
+            const grossCbm = (pW * pD * maxUsedHeight) / 1000000;
+            return { pureCbm, grossCbm, maxUsedHeight };
+        }
+
+        function updateDashboardKPIs() {
+            const { pW, pD } = getPalletDimensions();
+            const activePallets = pallets.filter(p => p.placedBoxes.length > 0);
+            let totalPureCbm = 0;
+            let totalGrossCbm = 0;
+
+            activePallets.forEach(p => {
+                const st = calculatePalletStats(p);
+                totalPureCbm += st.pureCbm;
+                totalGrossCbm += st.grossCbm;
+            });
+
+            const efficiency = totalGrossCbm > 0 ? Math.min(100, Math.round((totalPureCbm / totalGrossCbm) * 100)) : 0;
+
+            document.getElementById('kpi-pallets').textContent = activePallets.length;
+            document.getElementById('kpi-pallet-desc').textContent = `${pW}×${pD}cm 기준`;
+            document.getElementById('kpi-pure-cbm').textContent = totalPureCbm.toFixed(2);
+            document.getElementById('kpi-gross-cbm').textContent = totalGrossCbm.toFixed(2);
+
+            const currentStats = calculatePalletStats(pallets[currentPalletIdx]);
+            document.getElementById('kpi-max-height').textContent = `현재 파렛트 높이: ${currentStats.maxUsedHeight}cm`;
+            document.getElementById('kpi-efficiency').textContent = efficiency;
+            document.getElementById('kpi-efficiency-bar').style.width = `${efficiency}%`;
+        }
+
+        function renderPalletTabs() {
+            const container = document.getElementById('pallet-selector');
+            container.innerHTML = pallets.map((p, idx) => {
+                const st = calculatePalletStats(p);
+                const hasWarn = p.placedBoxes.some(b => b.hasCollision);
+                return `
+                    <button type="button" onclick="selectPallet(${idx})" 
+                        class="px-3 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap flex items-center gap-1 ${
+                            idx === currentPalletIdx 
+                            ? 'bg-slate-800 text-white shadow-sm' 
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }">
+                        ${hasWarn ? '<span class="w-2 h-2 rounded-full bg-rose-500"></span>' : ''}
+                        파렛트 #${idx + 1} (${st.grossCbm.toFixed(2)} CBM)
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function updateSelectionToolbar() {
+            const boxes = getSelectedBoxes();
+            const label = document.getElementById('selected-box-label');
+            const actions = document.getElementById('selected-box-actions');
+            const badge = document.getElementById('box-info-badge');
+            const snapStatusEl = document.getElementById('badge-snap-status');
+            const warnEl = document.getElementById('badge-warning');
+
+            if (boxes.length === 1) {
+                const box = boxes[0];
+                label.innerHTML = `<span class="text-white font-bold">${box.name}</span> <span class="text-blue-300">(${box.placedW}×${box.placedD}×${box.placedH}cm)</span>`;
+                actions.classList.remove('hidden');
+
+                document.getElementById('badge-color').style.backgroundColor = box.color;
+                document.getElementById('badge-name').textContent = box.name;
+                document.getElementById('badge-dim').textContent = `규격: ${box.placedW} × ${box.placedD} × ${box.placedH} cm`;
+                document.getElementById('badge-pos').textContent = `좌표: X ${box.x}cm, Z ${box.z}cm / 높이 ${box.y}cm`;
+
+                snapStatusEl.classList.toggle('hidden', !activeSnapGuides.snapped);
+                warnEl.classList.toggle('hidden', !box.hasCollision);
+                badge.classList.remove('hidden');
+            } else if (boxes.length > 1) {
+                const bbox = getSelectionBoundingBox(boxes);
+                const anyCollision = boxes.some(b => b.hasCollision);
+                label.innerHTML = `<span class="text-amber-300 font-bold">${boxes.length}개 박스 다중 선택됨</span>`;
+                actions.classList.remove('hidden');
+
+                document.getElementById('badge-color').style.backgroundColor = '#facc15';
+                document.getElementById('badge-name').textContent = `다중 그룹 (${boxes.length}박스)`;
+                document.getElementById('badge-dim').textContent = `그룹 외곽: ${Math.round(bbox.w * 10) / 10} × ${Math.round(bbox.d * 10) / 10} cm`;
+                document.getElementById('badge-pos').textContent = `기준점: X ${Math.round(bbox.minX * 10) / 10}cm, Z ${Math.round(bbox.minZ * 10) / 10}cm`;
+
+                snapStatusEl.classList.toggle('hidden', !activeSnapGuides.snapped);
+                warnEl.classList.toggle('hidden', !anyCollision);
+                badge.classList.remove('hidden');
+            } else {
+                label.textContent = '클릭 또는 Shift+클릭으로 선택';
+                actions.classList.add('hidden');
+                badge.classList.add('hidden');
+            }
+        }
+
+        function switchView(mode) {
+            currentViewMode = mode;
+            const btn3d = document.getElementById('btn-view-3d');
+            const btn2d = document.getElementById('btn-view-2d');
+            const view3d = document.getElementById('view-3d-container');
+            const view2d = document.getElementById('view-2d-container');
+
+            if (mode === '3d') {
+                btn3d.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-600 shadow-sm transition flex items-center gap-1.5';
+                btn2d.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5';
+                view3d.classList.remove('hidden');
+                view2d.classList.add('hidden');
+                onWindowResize3D();
+                rebuild3DScene();
+            } else {
+                btn2d.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-600 shadow-sm transition flex items-center gap-1.5';
+                btn3d.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5';
+                view2d.classList.remove('hidden');
+                view3d.classList.add('hidden');
+                render2DBlueprint();
+            }
+        }
+
+        // ==========================================
+        // 7. 3D 시각화 및 다중 선택 드래그 + 모서리 자석 가이드 엔진 (Three.js)
+        // ==========================================
+        let scene, camera, renderer, palletGroup, boxMeshes = [];
+        let isOrbitDragging = false, isBoxDragging3D = false;
+        let dragAnchorOffset3D = { x: 0, z: 0 };
+        let dragInitialBoxPositions3D = new Map();
+        let prevMouse = { x: 0, y: 0 };
+        let spherical = { radius: 260, theta: Math.PI / 4, phi: Math.PI / 3 };
+        let raycaster = null;
+        let mouse = null;
+        let dragPlane = null;
+
+        function init3D() {
+            if (typeof THREE === 'undefined') {
+                console.error('Three.js 라이브러리가 로드되지 않았습니다.');
+                showToast('3D 엔진 로드 중 오류가 발생했습니다. 2D 배치도 모드를 이용해 주세요.');
+                switchView('2d');
+                return;
+            }
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -12);
+
+            const wrapper = document.getElementById('three-canvas-wrapper');
+            scene = new THREE.Scene();
+
+            const width = wrapper.clientWidth || 600;
+            const height = wrapper.clientHeight || 430;
+            camera = new THREE.PerspectiveCamera(42, width / height, 1, 2000);
+            updateCameraPosition();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            wrapper.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.65);
+            dirLight.position.set(150, 280, 180);
+            scene.add(dirLight);
+
+            const backLight = new THREE.DirectionalLight(0xe2e8f0, 0.35);
+            backLight.position.set(-150, 100, -150);
+            scene.add(backLight);
+
+            palletGroup = new THREE.Group();
+            scene.add(palletGroup);
+
+            const dom = renderer.domElement;
+
+            dom.addEventListener('mousedown', e => {
+                const rect = dom.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+
+                const visibleMeshes = boxMeshes.filter(m => m.visible);
+                const intersects = raycaster.intersectObjects(visibleMeshes);
+                const isMultiKey = e.shiftKey || e.ctrlKey || e.metaKey;
+
+                if (intersects.length > 0) {
+                    const hitBox = intersects[0].object.userData;
+
+                    if (isMultiKey) {
+                        if (selectedBoxInstanceIds.has(hitBox.instanceId)) {
+                            selectedBoxInstanceIds.delete(hitBox.instanceId);
+                        } else {
+                            selectedBoxInstanceIds.add(hitBox.instanceId);
+                        }
+                    } else if (!selectedBoxInstanceIds.has(hitBox.instanceId)) {
+                        selectedBoxInstanceIds.clear();
+                        selectedBoxInstanceIds.add(hitBox.instanceId);
+                    }
+
+                    if (selectedBoxInstanceIds.has(hitBox.instanceId)) {
+                        isBoxDragging3D = true;
+                        dragPlane.set(new THREE.Vector3(0, 1, 0), -(12 + hitBox.y));
+                        const intersectPoint = new THREE.Vector3();
+                        raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+
+                        const { pW, pD } = getPalletDimensions();
+                        const selectedBoxes = getSelectedBoxes();
+                        const bbox = getSelectionBoundingBox(selectedBoxes);
+
+                        dragAnchorOffset3D.x = intersectPoint.x - (-pW / 2 + bbox.minX);
+                        dragAnchorOffset3D.z = intersectPoint.z - (-pD / 2 + bbox.minZ);
+
+                        dragInitialBoxPositions3D.clear();
+                        selectedBoxes.forEach(b => {
+                            dragInitialBoxPositions3D.set(b.instanceId, { relX: b.x - bbox.minX, relZ: b.z - bbox.minZ });
+                        });
+                    }
+
+                    updateSelectionToolbar();
+                    rebuild3DScene();
+                } else {
+                    if (!isMultiKey) {
+                        selectedBoxInstanceIds.clear();
+                        activeSnapGuides = { x: null, z: null, snapped: false };
+                    }
+                    isOrbitDragging = true;
+                    prevMouse = { x: e.clientX, y: e.clientY };
+                    updateSelectionToolbar();
+                    rebuild3DScene();
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isBoxDragging3D) {
+                    isBoxDragging3D = false;
+                    activeSnapGuides = { x: null, z: null, snapped: false };
+                    updateSelectionToolbar();
+                    rebuild3DScene();
+                }
+                isOrbitDragging = false;
+            });
+
+            dom.addEventListener('mousemove', e => {
+                const rect = dom.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                if (isBoxDragging3D) {
+                    const selectedBoxes = getSelectedBoxes();
+                    if (selectedBoxes.length === 0) return;
+
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersectPoint = new THREE.Vector3();
+                    if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
+                        const { pW, pD } = getPalletDimensions();
+                        const bbox = getSelectionBoundingBox(selectedBoxes);
+
+                        const desiredMinX = (intersectPoint.x - dragAnchorOffset3D.x) + pW / 2;
+                        const desiredMinZ = (intersectPoint.z - dragAnchorOffset3D.z) + pD / 2;
+
+                        const pallet = pallets[currentPalletIdx];
+                        const snappedOrigin = applyMagneticEdgeCornerSnap(
+                            desiredMinX, desiredMinZ, bbox.w, bbox.d, selectedBoxInstanceIds, pallet
+                        );
+
+                        selectedBoxes.forEach(b => {
+                            const initRel = dragInitialBoxPositions3D.get(b.instanceId);
+                            if (initRel) {
+                                b.x = Math.round((snappedOrigin.x + initRel.relX) * 10) / 10;
+                                b.z = Math.round((snappedOrigin.z + initRel.relZ) * 10) / 10;
+                            }
+                        });
+
+                        recalculatePhysicsForPallet(pallet);
+                        updateDashboardKPIs();
+                        renderPalletTabs();
+                        updateSelectionToolbar();
+                        rebuild3DScene();
+                    }
+                } else if (isOrbitDragging) {
+                    const dx = e.clientX - prevMouse.x;
+                    const dy = e.clientY - prevMouse.y;
+                    spherical.theta -= dx * 0.008;
+                    spherical.phi = Math.max(0.12, Math.min(Math.PI / 2 - 0.04, spherical.phi - dy * 0.008));
+                    updateCameraPosition();
+                    prevMouse = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            dom.addEventListener('wheel', e => {
+                e.preventDefault();
+                spherical.radius = Math.max(100, Math.min(600, spherical.radius + e.deltaY * 0.15));
+                updateCameraPosition();
+            }, { passive: false });
+
+            window.addEventListener('resize', onWindowResize3D);
+            animate3D();
+        }
+
+        function setCameraPreset(type) {
+            if (type === 'iso') {
+                spherical = { radius: 260, theta: Math.PI / 4, phi: Math.PI / 3 };
+            } else if (type === 'top') {
+                spherical = { radius: 250, theta: 0, phi: 0.12 };
+            } else if (type === 'front') {
+                spherical = { radius: 250, theta: 0, phi: Math.PI / 2 - 0.08 };
+            } else if (type === 'side') {
+                spherical = { radius: 250, theta: Math.PI / 2, phi: Math.PI / 2 - 0.08 };
+            }
+            updateCameraPosition();
+        }
+
+        function updateCameraPosition() {
+            if (!camera) return;
+            const targetY = 55;
+            camera.position.x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+            camera.position.y = targetY + spherical.radius * Math.cos(spherical.phi);
+            camera.position.z = spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+            camera.lookAt(0, targetY, 0);
+        }
+
+        function onWindowResize3D() {
+            if (!renderer || !camera) return;
+            const wrapper = document.getElementById('three-canvas-wrapper');
+            if (!wrapper || wrapper.clientWidth === 0) return;
+            camera.aspect = wrapper.clientWidth / wrapper.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+        }
+
+        function rebuild3DScene() {
+            if (!palletGroup || typeof THREE === 'undefined') return;
+            while (palletGroup.children.length > 0) {
+                palletGroup.remove(palletGroup.children[0]);
+            }
+            boxMeshes = [];
+
+            const { pW, pD, maxH } = getPalletDimensions();
+            const palletBaseH = 12;
+
+            // 1. 파렛트 베이스 및 10cm 격자 눈금
+            const palletGeo = new THREE.BoxGeometry(pW, palletBaseH, pD);
+            const palletMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+            const palletMesh = new THREE.Mesh(palletGeo, palletMat);
+            palletMesh.position.set(0, palletBaseH / 2, 0);
+            palletGroup.add(palletMesh);
+
+            const gridHelper = new THREE.GridHelper(Math.max(pW, pD), Math.round(Math.max(pW, pD) / 10), 0x94a3b8, 0xcbd5e1);
+            gridHelper.position.set(0, palletBaseH + 0.1, 0);
+            gridHelper.scale.set(pW / Math.max(pW, pD), 1, pD / Math.max(pW, pD));
+            palletGroup.add(gridHelper);
+
+            // 2. 최대 허용 높이 가이드라인
+            const guideGeo = new THREE.BoxGeometry(pW, maxH, pD);
+            const guideEdges = new THREE.EdgesGeometry(guideGeo);
+            const guideLine = new THREE.LineSegments(
+                guideEdges,
+                new THREE.LineDashedMaterial({ color: 0x64748b, dashSize: 4, gapSize: 3 })
+            );
+            guideLine.computeLineDistances();
+            guideLine.position.set(0, palletBaseH + maxH / 2, 0);
+            palletGroup.add(guideLine);
+
+            // 3. 실시간 자석 스냅 보정 가이드 평면 (3D 녹색 레이저 가이드)
+            if (activeSnapGuides.x !== null) {
+                const snapGeoX = new THREE.PlaneGeometry(pD, maxH);
+                const snapMatX = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.22, side: THREE.DoubleSide });
+                const snapPlaneX = new THREE.Mesh(snapGeoX, snapMatX);
+                snapPlaneX.rotation.y = Math.PI / 2;
+                snapPlaneX.position.set(-pW / 2 + activeSnapGuides.x, palletBaseH + maxH / 2, 0);
+                palletGroup.add(snapPlaneX);
+            }
+            if (activeSnapGuides.z !== null) {
+                const snapGeoZ = new THREE.PlaneGeometry(pW, maxH);
+                const snapMatZ = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.22, side: THREE.DoubleSide });
+                const snapPlaneZ = new THREE.Mesh(snapGeoZ, snapMatZ);
+                snapPlaneZ.position.set(0, palletBaseH + maxH / 2, -pD / 2 + activeSnapGuides.z);
+                palletGroup.add(snapPlaneZ);
+            }
+
+            // 4. 배치된 박스 렌더링
+            const pallet = pallets[currentPalletIdx];
+            if (!pallet) return;
+
+            pallet.placedBoxes.forEach(box => {
+                const isSelected = selectedBoxInstanceIds.has(box.instanceId);
+                const gap = 0.3;
+                const geo = new THREE.BoxGeometry(
+                    Math.max(1, box.placedW - gap),
+                    Math.max(1, box.placedH - gap),
+                    Math.max(1, box.placedD - gap)
+                );
+
+                const matColor = box.hasCollision ? 0xef4444 : box.color;
+                const mat = new THREE.MeshLambertMaterial({
+                    color: matColor,
+                    transparent: box.hasCollision,
+                    opacity: box.hasCollision ? 0.78 : 1.0,
+                    emissive: isSelected ? 0x332b00 : 0x000000
+                });
+
+                const mesh = new THREE.Mesh(geo, mat);
+                const posX = -pW / 2 + box.x + box.placedW / 2;
+                const posY = palletBaseH + box.y + box.placedH / 2;
+                const posZ = -pD / 2 + box.z + box.placedD / 2;
+
+                mesh.position.set(posX, posY, posZ);
+                mesh.userData = box;
+                mesh.visible = box.y < heightFilterLimit;
+
+                const edges = new THREE.EdgesGeometry(geo);
+                const lineMat = isSelected
+                    ? new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 })
+                    : new THREE.LineBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.4 });
+                mesh.add(new THREE.LineSegments(edges, lineMat));
+
+                palletGroup.add(mesh);
+                boxMeshes.push(mesh);
+            });
+        }
+
+        function filter3DByHeight(val) {
+            heightFilterLimit = parseInt(val, 10);
+            const { maxH } = getPalletDimensions();
+            document.getElementById('height-slider-label').textContent = heightFilterLimit >= maxH
+                ? `전체 (${maxH}cm)`
+                : `바닥 ~ ${heightFilterLimit}cm 보기`;
+
+            boxMeshes.forEach(mesh => {
+                mesh.visible = mesh.userData.y < heightFilterLimit;
+            });
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            if (renderer && scene && camera && currentViewMode === '3d') {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // ==========================================
+        // 8. 2D 평면도(Top-Down & 높이 구간) 다중 선택 + 자석 스냅 드래그 엔진
+        // ==========================================
+        let isDragging2D = false;
+        let dragAnchorOffset2D = { x: 0, z: 0 };
+        let dragInitialBoxPositions2D = new Map();
+        let current2DScale = 1;
+        const PADDING_2D = 45;
+
+        function render2DBlueprint() {
+            const pallet = pallets[currentPalletIdx];
+            const tabsContainer = document.getElementById('layer-2d-tabs');
+            const canvas = document.getElementById('blueprint-canvas');
+            const ctx = canvas.getContext('2d');
+            const { pW, pD } = getPalletDimensions();
+
+            const uniqueHeights = [...new Set(pallet.placedBoxes.map(b => b.y))].sort((a, b) => a - b);
+
+            let tabsHtml = `
+                <button type="button" onclick="set2DSliceFilter('all')" 
+                    class="px-3 py-1 rounded-lg text-xs font-bold transition ${
+                        current2DSliceFilter === 'all' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }">
+                    전체 평면 (Top-Down)
+                </button>
+            `;
+            uniqueHeights.forEach((hVal, idx) => {
+                const isSelected = current2DSliceFilter === hVal;
+                tabsHtml += `
+                    <button type="button" onclick="set2DSliceFilter(${hVal})" 
+                        class="px-3 py-1 rounded-lg text-xs font-bold transition ${
+                            isSelected ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }">
+                        ${idx + 1}단 (바닥 ${hVal}cm)
+                    </button>
+                `;
+            });
+            tabsContainer.innerHTML = tabsHtml;
+
+            const maxCanvasSize = 340;
+            current2DScale = (maxCanvasSize - PADDING_2D * 2) / Math.max(pW, pD);
+            canvas.width = pW * current2DScale + PADDING_2D * 2;
+            canvas.height = pD * current2DScale + PADDING_2D * 2;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const drawW = pW * current2DScale;
+            const drawD = pD * current2DScale;
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(PADDING_2D, PADDING_2D, drawW, drawD);
+
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            for (let gx = 10; gx < pW; gx += 10) {
+                ctx.beginPath();
+                ctx.moveTo(PADDING_2D + gx * current2DScale, PADDING_2D);
+                ctx.lineTo(PADDING_2D + gx * current2DScale, PADDING_2D + drawD);
+                ctx.stroke();
+            }
+            for (let gy = 10; gy < pD; gy += 10) {
+                ctx.beginPath();
+                ctx.moveTo(PADDING_2D, PADDING_2D + gy * current2DScale);
+                ctx.lineTo(PADDING_2D + drawW, PADDING_2D + gy * current2DScale);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(PADDING_2D, PADDING_2D, drawW, drawD);
+
+            ctx.fillStyle = '#334155';
+            ctx.font = 'bold 12px "Noto Sans KR", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`가로 ${pW}cm`, PADDING_2D + drawW / 2, PADDING_2D - 12);
+
+            ctx.save();
+            ctx.translate(PADDING_2D - 15, PADDING_2D + drawD / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText(`세로 ${pD}cm`, 0, 0);
+            ctx.restore();
+
+            const visibleBoxes = pallet.placedBoxes
+                .filter(b => current2DSliceFilter === 'all' || Math.abs(b.y - current2DSliceFilter) < 0.1)
+                .sort((a, b) => a.y - b.y);
+
+            visibleBoxes.forEach(box => {
+                const bx = PADDING_2D + box.x * current2DScale;
+                const by = PADDING_2D + box.z * current2DScale;
+                const bw = box.placedW * current2DScale;
+                const bd = box.placedD * current2DScale;
+                const isSelected = selectedBoxInstanceIds.has(box.instanceId);
+
+                ctx.fillStyle = box.hasCollision ? '#ef4444CC' : (box.color + 'DD');
+                ctx.fillRect(bx + 1, by + 1, bw - 2, bd - 2);
+
+                ctx.strokeStyle = isSelected ? '#facc15' : (box.hasCollision ? '#991b1b' : '#1e293b');
+                ctx.lineWidth = isSelected ? 3 : 1.5;
+                ctx.strokeRect(bx + 1, by + 1, bw - 2, bd - 2);
+
+                if (bw > 32 && bd > 22) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 10px "Noto Sans KR", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`${box.placedW}×${box.placedD}`, bx + bw / 2, by + bd / 2 - 5);
+                    ctx.font = '9px "Noto Sans KR", sans-serif';
+                    ctx.fillText(`(H:${box.y}~${box.y + box.placedH})`, bx + bw / 2, by + bd / 2 + 7);
+                }
+            });
+
+            // 2D 실시간 모서리·꼭짓점 자석 흡착 가이드선(녹색 점선 및 꼭짓점 원형 마커) 렌더링
+            if (activeSnapGuides.x !== null) {
+                const gx = PADDING_2D + activeSnapGuides.x * current2DScale;
+                ctx.save();
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 3]);
+                ctx.beginPath();
+                ctx.moveTo(gx, PADDING_2D - 6);
+                ctx.lineTo(gx, PADDING_2D + drawD + 6);
+                ctx.stroke();
+                ctx.restore();
+            }
+            if (activeSnapGuides.z !== null) {
+                const gz = PADDING_2D + activeSnapGuides.z * current2DScale;
+                ctx.save();
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 3]);
+                ctx.beginPath();
+                ctx.moveTo(PADDING_2D - 6, gz);
+                ctx.lineTo(PADDING_2D + drawW + 6, gz);
+                ctx.stroke();
+                ctx.restore();
+            }
+            if (activeSnapGuides.x !== null && activeSnapGuides.z !== null) {
+                // 꼭짓점 교차점에 자석 맞물림 표시
+                const cx = PADDING_2D + activeSnapGuides.x * current2DScale;
+                const cz = PADDING_2D + activeSnapGuides.z * current2DScale;
+                ctx.save();
+                ctx.fillStyle = '#10b981';
+                ctx.beginPath();
+                ctx.arc(cx, cz, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function set2DSliceFilter(val) {
+            current2DSliceFilter = val;
+            render2DBlueprint();
+        }
+
+        function init2DEvents() {
+            const canvas = document.getElementById('blueprint-canvas');
+            canvas.addEventListener('mousedown', e => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleRatioX = canvas.width / rect.width;
+                const scaleRatioY = canvas.height / rect.height;
+                const clickX = ((e.clientX - rect.left) * scaleRatioX - PADDING_2D) / current2DScale;
+                const clickZ = ((e.clientY - rect.top) * scaleRatioY - PADDING_2D) / current2DScale;
+                const isMultiKey = e.shiftKey || e.ctrlKey || e.metaKey;
+
+                const pallet = pallets[currentPalletIdx];
+                const candidates = pallet.placedBoxes
+                    .filter(b => current2DSliceFilter === 'all' || Math.abs(b.y - current2DSliceFilter) < 0.1)
+                    .sort((a, b) => b.y - a.y);
+
+                const hit = candidates.find(b =>
+                    clickX >= b.x && clickX <= b.x + b.placedW &&
+                    clickZ >= b.z && clickZ <= b.z + b.placedD
+                );
+
+                if (hit) {
+                    if (isMultiKey) {
+                        if (selectedBoxInstanceIds.has(hit.instanceId)) {
+                            selectedBoxInstanceIds.delete(hit.instanceId);
+                        } else {
+                            selectedBoxInstanceIds.add(hit.instanceId);
+                        }
+                    } else if (!selectedBoxInstanceIds.has(hit.instanceId)) {
+                        selectedBoxInstanceIds.clear();
+                        selectedBoxInstanceIds.add(hit.instanceId);
+                    }
+
+                    if (selectedBoxInstanceIds.has(hit.instanceId)) {
+                        isDragging2D = true;
+                        const selectedBoxes = getSelectedBoxes();
+                        const bbox = getSelectionBoundingBox(selectedBoxes);
+                        dragAnchorOffset2D.x = clickX - bbox.minX;
+                        dragAnchorOffset2D.z = clickZ - bbox.minZ;
+
+                        dragInitialBoxPositions2D.clear();
+                        selectedBoxes.forEach(b => {
+                            dragInitialBoxPositions2D.set(b.instanceId, { relX: b.x - bbox.minX, relZ: b.z - bbox.minZ });
+                        });
+                    }
+                } else {
+                    if (!isMultiKey) {
+                        selectedBoxInstanceIds.clear();
+                        activeSnapGuides = { x: null, z: null, snapped: false };
+                    }
+                }
+                updateSelectionToolbar();
+                render2DBlueprint();
+            });
+
+            window.addEventListener('mousemove', e => {
+                if (!isDragging2D) return;
+                const selectedBoxes = getSelectedBoxes();
+                if (selectedBoxes.length === 0) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const scaleRatioX = canvas.width / rect.width;
+                const scaleRatioY = canvas.height / rect.height;
+                const curX = ((e.clientX - rect.left) * scaleRatioX - PADDING_2D) / current2DScale;
+                const curZ = ((e.clientY - rect.top) * scaleRatioY - PADDING_2D) / current2DScale;
+
+                const bbox = getSelectionBoundingBox(selectedBoxes);
+                const desiredMinX = curX - dragAnchorOffset2D.x;
+                const desiredMinZ = curZ - dragAnchorOffset2D.z;
+
+                const pallet = pallets[currentPalletIdx];
+                const snappedOrigin = applyMagneticEdgeCornerSnap(
+                    desiredMinX, desiredMinZ, bbox.w, bbox.d, selectedBoxInstanceIds, pallet
+                );
+
+                selectedBoxes.forEach(b => {
+                    const initRel = dragInitialBoxPositions2D.get(b.instanceId);
+                    if (initRel) {
+                        b.x = Math.round((snappedOrigin.x + initRel.relX) * 10) / 10;
+                        b.z = Math.round((snappedOrigin.z + initRel.relZ) * 10) / 10;
+                    }
+                });
+
+                recalculatePhysicsForPallet(pallet);
+                updateDashboardKPIs();
+                renderPalletTabs();
+                updateSelectionToolbar();
+                render2DBlueprint();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging2D) {
+                    isDragging2D = false;
+                    activeSnapGuides = { x: null, z: null, snapped: false };
+                    updateSelectionToolbar();
+                    render2DBlueprint();
+                }
+            });
+        }
+
+        // ==========================================
+        // 9. 내보내기 / 불러오기 / 클립보드 복사
+        // ==========================================
+        function copySummaryToClipboard() {
+            const { pW, pD } = getPalletDimensions();
+            const activePallets = pallets.filter(p => p.placedBoxes.length > 0);
+            let totalPure = 0, totalGross = 0, totalBoxes = 0;
+
+            activePallets.forEach(p => {
+                const st = calculatePalletStats(p);
+                totalPure += st.pureCbm;
+                totalGross += st.grossCbm;
+                totalBoxes += p.placedBoxes.length;
+            });
+
+            let text = `[쿠팡 밀크런 입고 적재 요약]\n`;
+            text += `- 파렛트 규격: ${pW}×${pD}cm\n`;
+            text += `- 총 파렛트 수량: ${activePallets.length} PLT (적재 완료 ${totalBoxes}박스)\n`;
+            text += `- 밀크런 신청 권장 부피: ${totalGross.toFixed(2)} CBM (순수 박스 부피: ${totalPure.toFixed(2)} CBM)\n\n`;
+            text += `[파렛트별 상세]\n`;
+            activePallets.forEach((p, idx) => {
+                const st = calculatePalletStats(p);
+                text += `• 파렛트 #${idx + 1}: 최고 적재높이 ${st.maxUsedHeight}cm / ${st.grossCbm.toFixed(2)} CBM (${p.placedBoxes.length}박스)\n`;
+            });
+            text += `\n[품목 내역]\n`;
+            skuList.forEach(s => {
+                text += `- ${s.name} (${s.w}×${s.d}×${s.h}cm): 적재 ${getPlacedCountForSku(s.id)}/${s.qty}박스\n`;
+            });
+
+            const tempArea = document.createElement('textarea');
+            tempArea.value = text;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempArea);
+
+            showToast('밀크런 입고 신청용 부피 요약이 클립보드에 복사되었습니다!');
+        }
+
+        function exportDataJSON() {
+            const data = {
+                palletConfig: getPalletDimensions(),
+                skuList,
+                pallets
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coupang_milkrun_pallet_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('현재 적재 데이터(JSON)가 저장되었습니다.');
+        }
+
+        function importDataJSON(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const parsed = JSON.parse(evt.target.result);
+                    if (parsed.palletConfig) {
+                        document.getElementById('pallet-w').value = parsed.palletConfig.pW || 110;
+                        document.getElementById('pallet-d').value = parsed.palletConfig.pD || 110;
+                        document.getElementById('pallet-h').value = parsed.palletConfig.maxH || 150;
+                    }
+                    if (Array.isArray(parsed.skuList)) {
+                        skuList = parsed.skuList;
+                        nextSkuId = skuList.reduce((m, s) => Math.max(m, s.id), 0) + 1;
+                    }
+                    if (Array.isArray(parsed.pallets) && parsed.pallets.length > 0) {
+                        pallets = parsed.pallets;
+                        let maxInst = 0;
+                        pallets.forEach(p => {
+                            p.placedBoxes.forEach(b => maxInst = Math.max(maxInst, b.instanceId));
+                            recalculatePhysicsForPallet(p);
+                        });
+                        nextBoxInstanceId = maxInst + 1;
+                    }
+                    currentPalletIdx = 0;
+                    selectedBoxInstanceIds.clear();
+                    refreshAllViews();
+                    showToast('저장된 적재 데이터를 성공적으로 불러왔습니다.');
+                } catch (err) {
+                    showToast('유효하지 않은 JSON 파일입니다.');
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+
+        function exportSummaryCSV() {
+            let csv = '\uFEFF파렛트번호,품목명,배치가로(cm),배치세로(cm),높이(cm),X좌표(cm),Z좌표(cm),바닥높이Y(cm),단위CBM\n';
+            pallets.forEach((p, idx) => {
+                p.placedBoxes.forEach(b => {
+                    const cbm = ((b.placedW * b.placedD * b.placedH) / 1000000).toFixed(4);
+                    csv += `${idx + 1},"${b.name}",${b.placedW},${b.placedD},${b.placedH},${b.x},${b.z},${b.y},${cbm}\n`;
+                });
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coupang_milkrun_packing_list.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('파렛트 적재 명세서(CSV)가 다운로드되었습니다.');
+        }
+
+        // ==========================================
+        // 10. 초기화 실행
+        // ==========================================
+        window.onload = function() {
+            init3D();
+            init2DEvents();
+            autoPackAll();
+        };
+    </script>
+</body>
+</html>
